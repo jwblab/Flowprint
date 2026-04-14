@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Background rounded square -->
+  <rect width="32" height="32" rx="7" fill="#3b5bdb"/>
+
+  <!-- Node: top-left -->
+  <circle cx="8" cy="10" r="3.5" fill="#fff" opacity="0.95"/>
+  <!-- Node: top-right -->
+  <circle cx="24" cy="10" r="3.5" fill="#fff" opacity="0.95"/>
+  <!-- Node: bottom-center -->
+  <circle cx="16" cy="23" r="3.5" fill="#fff" opacity="0.95"/>
+
+  <!-- Edge: top-left → top-right -->
+  <line x1="11.5" y1="10" x2="20.5" y2="10" stroke="#a5b4fc" stroke-width="1.8" stroke-linecap="round"/>
+  <!-- Arrowhead right -->
+  <polygon points="20.5,10 18,8.5 18,11.5" fill="#a5b4fc"/>
+
+  <!-- Edge: top-left → bottom-center -->
+  <line x1="9.8" y1="13" x2="14.2" y2="20" stroke="#a5b4fc" stroke-width="1.8" stroke-linecap="round"/>
+  <!-- Arrowhead down-right -->
+  <polygon points="14.2,20 11.5,18.5 13.5,16.8" fill="#a5b4fc"/>
+
+  <!-- Edge: top-right → bottom-center -->
+  <line x1="22.2" y1="13" x2="17.8" y2="20" stroke="#a5b4fc" stroke-width="1.8" stroke-linecap="round"/>
+  <!-- Arrowhead down-left -->
+  <polygon points="17.8,20 18.5,16.8 20.5,18.5" fill="#a5b4fc"/>
+</svg>
