@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { api } from '../api';
 import TypeDot from '../components/TypeDot';
 import PipelineModal from '../components/PipelineModal';
@@ -28,6 +28,8 @@ function StatusBadge({ status }) {
 export default function PipelinePage({ pipelines, onRefresh }) {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const fromGraph = location.state?.from === 'graph';
   const [pipeline, setPipeline] = useState(null);
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState(null);
@@ -142,6 +144,9 @@ export default function PipelinePage({ pipelines, onRefresh }) {
           )}
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
+          {fromGraph && (
+            <button className="btn-ghost" onClick={() => navigate('/graph', { state: location.state })}>← Graph</button>
+          )}
           <button className="btn-ghost" onClick={() => window.open(`/print/pipeline/${id}`, '_blank')}>Print / Export</button>
           <button className="btn-ghost" onClick={() => setEditing(true)}>Edit</button>
           <button className="btn-danger" onClick={handleDelete}>Delete</button>

@@ -21,6 +21,7 @@ import GraphPanel from '../components/GraphPanel';
 import EntityModal from '../components/EntityModal';
 import PipelineModal from '../components/PipelineModal';
 import { useEntityTypes } from '../context/EntityTypesContext';
+import { useTheme } from '../context/ThemeContext';
 
 // ---------------------------------------------------------------------------
 // Context menu item
@@ -355,7 +356,7 @@ function buildGraphData(entities, pipelines, rfEdges) {
 
 const BIDI_COLOR = '#f59e0b'; // amber — bidirectional edges
 
-function toRFEdges(edges) {
+function toRFEdges(edges, edgeColor = '#ffffff', labelBg = '#1a1d27') {
   const seen = new Set();
   const result = [];
   for (const e of edges) {
@@ -373,7 +374,7 @@ function toRFEdges(edges) {
         markerEnd:   { type: MarkerType.ArrowClosed, color: BIDI_COLOR },
         style: { stroke: BIDI_COLOR, strokeWidth: 1.5 },
         labelStyle: { fill: '#7c85a8', fontSize: 11 },
-        labelBgStyle: { fill: '#1a1d27' },
+        labelBgStyle: { fill: labelBg },
         data: { reverseId: reverse.id },
       });
     } else {
@@ -382,10 +383,10 @@ function toRFEdges(edges) {
         source: e.source_id,
         target: e.target_id,
         label: e.label || undefined,
-        markerEnd: { type: MarkerType.ArrowClosed, color: '#ffffff' },
-        style: { stroke: '#ffffff', strokeWidth: 1.5 },
+        markerEnd: { type: MarkerType.ArrowClosed, color: edgeColor },
+        style: { stroke: edgeColor, strokeWidth: 1.5 },
         labelStyle: { fill: '#7c85a8', fontSize: 11 },
-        labelBgStyle: { fill: '#1a1d27' },
+        labelBgStyle: { fill: labelBg },
       });
     }
   }
@@ -396,11 +397,13 @@ function toRFEdges(edges) {
 // Main component
 // ---------------------------------------------------------------------------
 export default function GraphView({ entities, pipelines = [], onRefresh, onNew, onNewPipeline }) {
+  const { theme } = useTheme();
+  const edgeColor = theme === 'light' ? '#374151' : '#ffffff';
+  const labelBg   = theme === 'light' ? '#f5f6fa' : '#1a1d27';
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [edgeModal, setEdgeModal] = useState(false);
   const [edgeError, setEdgeError] = useState(null);
-  const [filterType, setFilterType] = useState('');
   const [focusId, setFocusId] = useState(null);
   const [panelItem, setPanelItem] = useState(null); // { type: 'entity'|'edge'|'pipeline', id }
   const [contextMenu, setContextMenu] = useState(null);
@@ -413,20 +416,14 @@ export default function GraphView({ entities, pipelines = [], onRefresh, onNew, 
   const location = useLocation();
   const { nodeColors, typeLabels } = useEntityTypes();
 
-  // Restore filters when returning from entity page
+  // Restore focus/filter state when returning from entity or pipeline page
   useEffect(() => {
     if (location.state?.from === 'graph') {
-      if (location.state.filterType !== undefined) setFilterType(location.state.filterType || '');
       if (location.state.focusId !== undefined) setFocusId(location.state.focusId || null);
+      if (location.state.focusPipelineId !== undefined) setFocusPipelineId(location.state.focusPipelineId || null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const usedTypes = useMemo(() => [...new Set(entities.map(e => e.type))], [entities]);
-  const entitiesOfType = useMemo(
-    () => filterType ? entities.filter(e => e.type === filterType) : entities,
-    [entities, filterType]
-  );
 
   // Map from entity DB ID → ordered list of pipeline IDs it belongs to
   const pipelinesForEntity = useMemo(() => {
@@ -510,7 +507,6 @@ export default function GraphView({ entities, pipelines = [], onRefresh, onNew, 
       }
       const eid = n.id.split('::')[0];
       const entity = entities.find(e => e.id === eid);
-      const hiddenByType          = !focusId && filterType && entity && entity.type !== filterType;
       const hiddenByFocus         = focusVisibleIds && !focusVisibleIds.has(eid);
       const hiddenByPipelineFocus = focusedPipelineEntityIds && !focusedPipelineEntityIds.has(eid);
       const dimmed = highlightedNodeIds ? !highlightedNodeIds.has(eid) : false;
@@ -518,11 +514,11 @@ export default function GraphView({ entities, pipelines = [], onRefresh, onNew, 
       const typeLabel = typeLabels[entity?.type] || entity?.type || n.data.typeLabel;
       return {
         ...n,
-        hidden: !!(hiddenByType || hiddenByFocus || hiddenByPipelineFocus),
+        hidden: !!(hiddenByFocus || hiddenByPipelineFocus),
         data: { ...n.data, dimmed, color, typeLabel },
       };
     });
-  }, [nodes, filterType, focusId, focusVisibleIds, focusedPipelineEntityIds, focusedPipelineIds, focusPipelineId, entities, highlightedNodeIds, nodeColors, typeLabels]);
+  }, [nodes, focusId, focusVisibleIds, focusedPipelineEntityIds, focusedPipelineIds, focusPipelineId, entities, highlightedNodeIds, nodeColors, typeLabels]);
 
   const visibleEdges = useMemo(() => {
     // Entity nodes now use compound IDs (entityId::pipelineId); extract entity IDs for visibility checks
@@ -544,7 +540,7 @@ export default function GraphView({ entities, pipelines = [], onRefresh, onNew, 
       if (highlightedEdgeIds) {
         const lit = highlightedEdgeIds.has(e.id);
         const isBidi = !!e.data?.reverseId;
-        const dimColor = isBidi ? BIDI_COLOR : '#ffffff';
+        const dimColor = isBidi ? BIDI_COLOR : edgeColor;
         const activeColor = lit ? '#818cf8' : dimColor;
         return {
           ...mapped, hidden,
@@ -560,7 +556,7 @@ export default function GraphView({ entities, pipelines = [], onRefresh, onNew, 
   useEffect(() => {
     async function load() {
       const dbEdges = await api.getEdges();
-      const rfEdges = toRFEdges(dbEdges);
+      const rfEdges = toRFEdges(dbEdges, edgeColor, labelBg);
       const rfNodes = buildGraphData(entities, pipelines, rfEdges);
       setNodes(rfNodes);
       setEdges(rfEdges);
@@ -627,11 +623,11 @@ export default function GraphView({ entities, pipelines = [], onRefresh, onNew, 
 
   const onNodeDoubleClick = useCallback((_, node) => {
     if (node.type === 'pipeline') {
-      navigate(`/pipeline/${node.data.pipelineId}`);
+      navigate(`/pipeline/${node.data.pipelineId}`, { state: { from: 'graph', focusId, focusPipelineId } });
     } else {
-      navigate(`/entity/${node.id.split('::')[0]}`, { state: { from: 'graph', filterType, focusId } });
+      navigate(`/entity/${node.id.split('::')[0]}`, { state: { from: 'graph', focusId, focusPipelineId } });
     }
-  }, [navigate, filterType, focusId]);
+  }, [navigate, focusId, focusPipelineId]);
 
   async function handleContextDeletePipeline(id) {
     const pipeline = pipelines.find(p => p.id === id);
@@ -710,7 +706,7 @@ export default function GraphView({ entities, pipelines = [], onRefresh, onNew, 
           data: { reverseId: edge.id },
         } : e));
       } else {
-        setEdges(eds => addEdge(toRFEdges([edge])[0], eds));
+        setEdges(eds => addEdge(toRFEdges([edge], edgeColor, labelBg)[0], eds));
       }
     } catch (e) {
       setEdgeError(e.message);
@@ -725,7 +721,7 @@ export default function GraphView({ entities, pipelines = [], onRefresh, onNew, 
         await Promise.all(form.pipeline_ids.map(pid => api.addEdgeToPipeline(pid, edge.id)));
         onRefresh();
       }
-      setEdges(eds => [...eds, toRFEdges([edge])[0]]);
+      setEdges(eds => [...eds, toRFEdges([edge], edgeColor, labelBg)[0]]);
       setEdgeModal(false);
       setEdgeError(null);
     } catch (e) {
@@ -743,7 +739,7 @@ export default function GraphView({ entities, pipelines = [], onRefresh, onNew, 
   // Re-run full layout, resetting pipeline positions as well
   async function handleAutoLayout() {
     const dbEdges = await api.getEdges();
-    const rfEdges = toRFEdges(dbEdges);
+    const rfEdges = toRFEdges(dbEdges, edgeColor, labelBg);
     const rfNodes = buildGraphData(
       entities,
       pipelines.map(p => ({ ...p, pos_x: 0, pos_y: 0 })), // reset pipeline positions
@@ -776,38 +772,18 @@ export default function GraphView({ entities, pipelines = [], onRefresh, onNew, 
           </button>
           <div style={{ width: 1, background: 'var(--border)', margin: '0 4px', alignSelf: 'stretch' }} />
           <select
-            value={filterType}
-            onChange={e => { setFilterType(e.target.value); setFocusId(null); }}
-            style={{ width: 150, fontSize: 12, padding: '4px 8px' }}
-          >
-            <option value="">All types</option>
-            {usedTypes.map(t => (
-              <option key={t} value={t}>{typeLabels[t] || t}</option>
-            ))}
-          </select>
-          <select
-            value={focusId ?? ''}
-            onChange={e => setFocusId(e.target.value || null)}
+            value={focusPipelineId ?? ''}
+            onChange={e => { setFocusPipelineId(e.target.value || null); setFocusId(null); }}
             style={{ width: 200, fontSize: 12, padding: '4px 8px' }}
           >
-            <option value="">All entities</option>
-            {entitiesOfType.map(e => (
-              <option key={e.id} value={e.id}>{e.name}</option>
+            <option value="">All pipelines</option>
+            {pipelines.map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
-          {focusId && (
-            <span style={{ fontSize: 12, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 6 }}>
-              Focus: <strong>{entities.find(e => e.id === focusId)?.name}</strong>
-            </span>
-          )}
-          {focusPipelineId && (
-            <span style={{ fontSize: 12, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 6 }}>
-              Pipeline focus: <strong>{pipelines.find(p => p.id === focusPipelineId)?.name}</strong>
-            </span>
-          )}
-          {(filterType || focusId || focusPipelineId) && (
+          {(focusId || focusPipelineId) && (
             <button className="btn-ghost" style={{ fontSize: 11, padding: '3px 8px' }}
-              onClick={() => { setFilterType(''); setFocusId(null); setFocusPipelineId(null); }}>
+              onClick={() => { setFocusId(null); setFocusPipelineId(null); }}>
               ✕ Clear
             </button>
           )}
@@ -832,10 +808,13 @@ export default function GraphView({ entities, pipelines = [], onRefresh, onNew, 
           onEdgesDelete={handleEdgeDelete}
           nodeTypes={nodeTypes}
           fitView
-          style={{ background: '#0f1117' }}
+          zoomOnScroll={false}
+          panOnScroll={true}
+          panOnScrollMode="vertical"
+          style={{ background: theme === 'light' ? '#f5f6fa' : '#0f1117' }}
           deleteKeyCode="Delete"
         >
-          <Background color="#2e3250" gap={24} />
+          <Background color={theme === 'light' ? '#d8dce8' : '#2e3250'} gap={24} />
           <Controls />
           <FitOnFocus focusId={focusId} focusPipelineId={focusPipelineId} />
           <MiniMap nodeColor={n => {
@@ -868,7 +847,7 @@ export default function GraphView({ entities, pipelines = [], onRefresh, onNew, 
                 return (
                   <>
                     {entity && <div style={{ padding: '6px 14px 4px', fontSize: 11, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)', marginBottom: 4 }}>{entity.name}</div>}
-                    <CtxItem label="Open" onClick={() => { navigate(`/entity/${contextMenu.id}`, { state: { from: 'graph', filterType, focusId } }); setContextMenu(null); }} />
+                    <CtxItem label="Open" onClick={() => { navigate(`/entity/${contextMenu.id}`, { state: { from: 'graph', focusId, focusPipelineId } }); setContextMenu(null); }} />
                     <CtxItem label="Focus" onClick={() => { setFocusId(contextMenu.id); setContextMenu(null); }} />
                     <CtxItem label="Edit" onClick={() => { setEditingEntityId(contextMenu.id); setContextMenu(null); }} />
                     <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
@@ -881,7 +860,7 @@ export default function GraphView({ entities, pipelines = [], onRefresh, onNew, 
                 return (
                   <>
                     {pipeline && <div style={{ padding: '6px 14px 4px', fontSize: 11, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)', marginBottom: 4 }}>{pipeline.name}</div>}
-                    <CtxItem label="Open" onClick={() => { navigate(`/pipeline/${contextMenu.id}`); setContextMenu(null); }} />
+                    <CtxItem label="Open" onClick={() => { navigate(`/pipeline/${contextMenu.id}`, { state: { from: 'graph', focusId, focusPipelineId } }); setContextMenu(null); }} />
                     <CtxItem label="Focus" onClick={() => { setFocusPipelineId(contextMenu.id); setContextMenu(null); }} />
                     <CtxItem label="Print / Export" onClick={() => { window.open(`/print/pipeline/${contextMenu.id}`, '_blank'); setContextMenu(null); }} />
                     <CtxItem label="Edit" onClick={() => { setEditingPipelineId(contextMenu.id); setContextMenu(null); }} />
@@ -920,6 +899,7 @@ export default function GraphView({ entities, pipelines = [], onRefresh, onNew, 
         entities={entities}
         pipelines={pipelines}
         edges={edges}
+        graphState={{ focusId, focusPipelineId }}
         onClose={() => setPanelItem(null)}
       />
 

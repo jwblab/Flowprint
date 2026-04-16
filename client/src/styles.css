@@ -285,7 +285,7 @@ label { font-size: 12px; color: var(--text-muted); display: block; margin-bottom
 }
 .react-flow__edge.selected .react-flow__edge-path,
 .react-flow__edge:focus .react-flow__edge-path {
-  stroke: #ffffff !important;
+  stroke: var(--text) !important;
   stroke-width: 3 !important;
 }
 .react-flow__edge.selected .react-flow__edge-interaction {

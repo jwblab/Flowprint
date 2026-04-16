@@ -34,7 +34,7 @@ function PanelHeader({ title, subtitle, onOpen, onClose }) {
 
 // ── Entity panel ─────────────────────────────────────────────────────────────
 
-function EntityPanel({ entityId, onClose }) {
+function EntityPanel({ entityId, graphState, onClose }) {
   const [entity, setEntity] = useState(null);
   const navigate = useNavigate();
   const { typeLabels } = useEntityTypes();
@@ -72,7 +72,7 @@ function EntityPanel({ entityId, onClose }) {
           </span>
         }
         title={entity.name}
-        onOpen={() => navigate(`/entity/${entity.id}`)}
+        onOpen={() => navigate(`/entity/${entity.id}`, { state: { from: 'graph', ...graphState } })}
         onClose={onClose}
       />
       <div style={{ overflowY: 'auto', flex: 1, padding: '14px 16px' }}>
@@ -234,7 +234,7 @@ function EdgePanel({ edgeId, edges, entities, pipelines, onClose }) {
 
 // ── Pipeline panel ────────────────────────────────────────────────────────────
 
-function PipelinePanel({ pipelineId, pipelines, entities, onClose }) {
+function PipelinePanel({ pipelineId, pipelines, entities, graphState, onClose }) {
   const navigate = useNavigate();
   const { typeLabels } = useEntityTypes();
   const pipeline = pipelines.find(p => p.id === pipelineId);
@@ -250,7 +250,7 @@ function PipelinePanel({ pipelineId, pipelines, entities, onClose }) {
       <PanelHeader
         subtitle="Pipeline"
         title={pipeline.name}
-        onOpen={() => navigate(`/pipeline/${pipelineId}`)}
+        onOpen={() => navigate(`/pipeline/${pipelineId}`, { state: { from: 'graph', ...graphState } })}
         onClose={onClose}
       />
       <div style={{ overflowY: 'auto', flex: 1, padding: '14px 16px' }}>
@@ -324,7 +324,7 @@ function PipelinePanel({ pipelineId, pipelines, entities, onClose }) {
 
 // ── Main export ───────────────────────────────────────────────────────────────
 
-export default function GraphPanel({ item, entities = [], pipelines = [], edges = [], onClose }) {
+export default function GraphPanel({ item, entities = [], pipelines = [], edges = [], graphState = {}, onClose }) {
   if (!item) return null;
 
   return (
@@ -336,13 +336,13 @@ export default function GraphPanel({ item, entities = [], pipelines = [], edges 
       overflow: 'hidden',
     }}>
       {item.type === 'entity' && (
-        <EntityPanel entityId={item.id} onClose={onClose} />
+        <EntityPanel entityId={item.id} graphState={graphState} onClose={onClose} />
       )}
       {item.type === 'edge' && (
         <EdgePanel edgeId={item.id} edges={edges} entities={entities} pipelines={pipelines} onClose={onClose} />
       )}
       {item.type === 'pipeline' && (
-        <PipelinePanel pipelineId={item.id} pipelines={pipelines} entities={entities} onClose={onClose} />
+        <PipelinePanel pipelineId={item.id} pipelines={pipelines} entities={entities} graphState={graphState} onClose={onClose} />
       )}
     </div>
   );
