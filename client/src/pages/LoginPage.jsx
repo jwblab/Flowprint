@@ -4,8 +4,7 @@ import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 
 export default function LoginPage() {
-  const [mode, setMode] = useState('login'); // 'login' | 'register'
-  const [form, setForm] = useState({ workspaceName: '', email: '', password: '' });
+  const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
@@ -18,9 +17,7 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      const data = mode === 'login'
-        ? await api.login({ email: form.email, password: form.password })
-        : await api.register({ workspaceName: form.workspaceName, email: form.email, password: form.password });
+      const data = await api.login({ email: form.email, password: form.password });
       login(data.token);
       navigate('/graph', { replace: true });
     } catch (err) {
@@ -44,24 +41,11 @@ export default function LoginPage() {
             Flowprint
           </div>
           <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>
-            {mode === 'login' ? 'Sign in to your workspace' : 'Create a new workspace'}
+            Sign in to your workspace
           </div>
         </div>
 
         <form onSubmit={handleSubmit}>
-          {mode === 'register' && (
-            <div className="field">
-              <label>Workspace name</label>
-              <input
-                value={form.workspaceName}
-                onChange={e => set('workspaceName', e.target.value)}
-                placeholder="e.g. Acme Corp"
-                required
-                autoFocus
-              />
-            </div>
-          )}
-
           <div className="field">
             <label>Email</label>
             <input
@@ -70,7 +54,7 @@ export default function LoginPage() {
               onChange={e => set('email', e.target.value)}
               placeholder="you@example.com"
               required
-              autoFocus={mode === 'login'}
+              autoFocus
             />
           </div>
 
@@ -80,7 +64,6 @@ export default function LoginPage() {
               type="password"
               value={form.password}
               onChange={e => set('password', e.target.value)}
-              placeholder={mode === 'register' ? 'At least 8 characters' : ''}
               required
             />
           </div>
@@ -95,27 +78,9 @@ export default function LoginPage() {
             disabled={loading}
             style={{ width: '100%', padding: '10px', marginTop: 4 }}
           >
-            {loading ? '…' : mode === 'login' ? 'Sign in' : 'Create workspace'}
+            {loading ? '…' : 'Sign in'}
           </button>
         </form>
-
-        <div style={{ marginTop: 20, textAlign: 'center', fontSize: 13, color: 'var(--text-muted)' }}>
-          {mode === 'login' ? (
-            <>No account?{' '}
-              <button className="btn-ghost" style={{ padding: 0, fontSize: 13 }}
-                onClick={() => { setMode('register'); setError(null); }}>
-                Create a workspace
-              </button>
-            </>
-          ) : (
-            <>Already have an account?{' '}
-              <button className="btn-ghost" style={{ padding: 0, fontSize: 13 }}
-                onClick={() => { setMode('login'); setError(null); }}>
-                Sign in
-              </button>
-            </>
-          )}
-        </div>
       </div>
     </div>
   );

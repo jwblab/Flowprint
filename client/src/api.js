@@ -46,13 +46,23 @@ export const api = {
   // Changelog
   getChangelog: (params) => req('GET', `/changelog${params ? '?' + new URLSearchParams(params) : ''}`),
 
-  // Admin
-  getUsers:         ()                       => req('GET',    '/admin/users'),
-  setUserRole:      (id, role)               => req('PATCH',  `/admin/users/${id}/role`, { role }),
+  // Workspace
+  getWorkspace: () => req('GET', '/workspace'),
+
+  // Admin — users
+  getUsers:           ()             => req('GET',    '/admin/users'),
+  createUser:         (body)         => req('POST',   '/admin/users', body),
+  setUserRole:        (id, role)     => req('PATCH',  `/admin/users/${id}/role`, { role }),
+  resetUserPassword:  (id, password) => req('PATCH',  `/admin/users/${id}/password`, { password }),
   getResources:     ()                       => req('GET',    '/admin/resources'),
   getPermissions:   (params)                 => req('GET',    `/admin/permissions${params ? '?' + new URLSearchParams(params) : ''}`),
   setPermission:    (body)                   => req('PUT',    '/admin/permissions', body),
   deletePermission: (id)                     => req('DELETE', `/admin/permissions/${id}`),
+
+  // Admin — tenants (superadmin only)
+  getTenants:       ()              => req('GET',  '/admin/tenants'),
+  createTenant:     (body)          => req('POST', '/admin/tenants', body),
+  switchWorkspace:  (workspaceId)   => req('POST', '/admin/switch-workspace', { workspaceId }),
 
   // Entity types (custom, workspace-level)
   getEntityTypes:   ()         => req('GET',    '/entity-types'),

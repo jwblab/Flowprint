@@ -14,6 +14,14 @@ app.use(express.json());
 app.use('/api/auth', require('./routes/auth'));
 
 // Protected routes — all require a valid JWT
+app.get('/api/workspace', auth, async (req, res, next) => {
+  try {
+    const db = require('./db');
+    const ws = await db.queryOne('SELECT id, name FROM workspaces WHERE id = $1', [req.user.workspaceId]);
+    res.json(ws);
+  } catch (err) { next(err); }
+});
+
 app.use('/api/entities',  auth, require('./routes/entities'));
 app.use('/api/edges',     auth, require('./routes/edges'));
 app.use('/api/pipelines', auth, require('./routes/pipelines'));

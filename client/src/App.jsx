@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { EntityTypesProvider } from './context/EntityTypesContext';
+import { ThemeProvider } from './context/ThemeContext';
 import Topbar from './components/Topbar';
 import Sidebar from './components/Sidebar';
 import EntityModal from './components/EntityModal';
@@ -150,6 +151,7 @@ function AppShell() {
 
 export default function App() {
   return (
+    <ThemeProvider>
     <AuthProvider>
       <EntityTypesProvider>
       <Routes>
@@ -164,5 +166,6 @@ export default function App() {
       </Routes>
       </EntityTypesProvider>
     </AuthProvider>
+    </ThemeProvider>
   );
 }

@@ -18,11 +18,139 @@ function RoleBadge({ role }) {
   );
 }
 
+// ── Create User form ───────────────────────────────────────────────────────
+
+function CreateUserForm({ currentUser, onCreated }) {
+  const [form, setForm] = useState({ email: '', password: '', role: 'user' });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  function setF(k, v) { setForm(f => ({ ...f, [k]: v })); }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError('');
+    setSaving(true);
+    try {
+      const created = await api.createUser(form);
+      setForm({ email: '', password: '', role: 'user' });
+      onCreated(created);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const assignableRoles = currentUser.role === 'superadmin'
+    ? ROLE_ORDER
+    : ROLE_ORDER.filter(r => r !== 'superadmin');
+
+  return (
+    <form onSubmit={handleSubmit} style={{ marginBottom: 32, padding: 16, background: 'var(--bg-secondary)', borderRadius: 8, border: '1px solid var(--border)' }}>
+      <h4 style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--accent)', marginBottom: 14 }}>
+        Add User
+      </h4>
+      {error && <p style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 10 }}>{error}</p>}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        <div>
+          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Email *</label>
+          <input
+            type="email"
+            value={form.email}
+            onChange={e => setF('email', e.target.value)}
+            required
+            placeholder="user@example.com"
+            style={{ ...inputStyle, width: 220 }}
+          />
+        </div>
+        <div>
+          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Password *</label>
+          <input
+            type="password"
+            value={form.password}
+            onChange={e => setF('password', e.target.value)}
+            required
+            minLength={8}
+            placeholder="Min 8 characters"
+            style={{ ...inputStyle, width: 180 }}
+          />
+        </div>
+        <div>
+          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Role</label>
+          <select
+            value={form.role}
+            onChange={e => setF('role', e.target.value)}
+            style={{ ...selectStyle, width: 130 }}
+          >
+            {assignableRoles.map(r => (
+              <option key={r} value={r} style={optStyle}>{ROLE_LABELS[r]}</option>
+            ))}
+          </select>
+        </div>
+        <button type="submit" className="btn-primary" disabled={saving} style={{ height: 32, whiteSpace: 'nowrap' }}>
+          {saving ? 'Adding…' : '+ Add User'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+// ── Password reset row ─────────────────────────────────────────────────────
+
+function PasswordResetRow({ userId, onDone }) {
+  const [pw, setPw] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [ok, setOk] = useState(false);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError('');
+    setSaving(true);
+    try {
+      await api.resetUserPassword(userId, pw);
+      setPw('');
+      setOk(true);
+      setTimeout(() => { setOk(false); onDone(); }, 1200);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <tr style={{ background: 'var(--bg-secondary)' }}>
+      <td colSpan={5} style={{ padding: '8px 12px 8px 0' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <input
+            type="password"
+            value={pw}
+            onChange={e => setPw(e.target.value)}
+            placeholder="New password (min 8 chars)"
+            minLength={8}
+            required
+            autoFocus
+            style={{ ...inputStyle, width: 220, fontSize: 12 }}
+          />
+          <button type="submit" className="btn-primary" disabled={saving || ok} style={{ fontSize: 12, padding: '4px 12px', whiteSpace: 'nowrap' }}>
+            {ok ? 'Saved' : saving ? '…' : 'Set password'}
+          </button>
+          <button type="button" onClick={onDone} style={{ ...btnSmall, fontSize: 12 }}>Cancel</button>
+          {error && <span style={{ color: 'var(--danger)', fontSize: 12 }}>{error}</span>}
+        </form>
+      </td>
+    </tr>
+  );
+}
+
 // ── Users tab ──────────────────────────────────────────────────────────────
 
 function UsersTab({ currentUser }) {
   const [users, setUsers] = useState([]);
   const [saving, setSaving] = useState(null);
+  const [resetting, setResetting] = useState(null); // userId whose pw row is open
   const [error, setError] = useState('');
 
   const load = useCallback(() => {
@@ -50,6 +178,11 @@ function UsersTab({ currentUser }) {
 
   return (
     <div>
+      <CreateUserForm
+        currentUser={currentUser}
+        onCreated={newUser => setUsers(prev => [...prev, newUser])}
+      />
+
       {error && <p style={{ color: 'var(--danger, #e74c3c)', fontSize: 13, marginBottom: 12 }}>{error}</p>}
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
         <thead>
@@ -58,6 +191,7 @@ function UsersTab({ currentUser }) {
             <th style={th}>Role</th>
             <th style={th}>Joined</th>
             <th style={th}>Change Role</th>
+            <th style={th}></th>
           </tr>
         </thead>
         <tbody>
@@ -65,32 +199,51 @@ function UsersTab({ currentUser }) {
             const isSelf = u.id === currentUser.userId;
             const cantEdit = isSelf || (u.role === 'superadmin' && currentUser.role !== 'superadmin');
             return (
-              <tr key={u.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                <td style={td}>
-                  {u.email}
-                  {isSelf && <span style={{ marginLeft: 6, fontSize: 11, color: 'var(--text-muted)' }}>(you)</span>}
-                </td>
-                <td style={td}><RoleBadge role={u.role} /></td>
-                <td style={{ ...td, color: 'var(--text-muted)' }}>
-                  {new Date(u.created_at).toLocaleDateString()}
-                </td>
-                <td style={td}>
-                  {cantEdit ? (
-                    <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>
-                  ) : (
-                    <select
-                      value={u.role}
-                      disabled={!!saving}
-                      onChange={e => handleRoleChange(u, e.target.value)}
-                      style={{ ...selectStyle, fontSize: 12, padding: '3px 6px', opacity: saving === u.id ? 0.5 : 1 }}
-                    >
-                      {assignableRoles.map(r => (
-                        <option key={r} value={r} style={optStyle}>{ROLE_LABELS[r]}</option>
-                      ))}
-                    </select>
-                  )}
-                </td>
-              </tr>
+              <>
+                <tr key={u.id} style={{ borderBottom: resetting === u.id ? 'none' : '1px solid var(--border)' }}>
+                  <td style={td}>
+                    {u.email}
+                    {isSelf && <span style={{ marginLeft: 6, fontSize: 11, color: 'var(--text-muted)' }}>(you)</span>}
+                  </td>
+                  <td style={td}><RoleBadge role={u.role} /></td>
+                  <td style={{ ...td, color: 'var(--text-muted)' }}>
+                    {new Date(u.created_at).toLocaleDateString()}
+                  </td>
+                  <td style={td}>
+                    {cantEdit ? (
+                      <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>
+                    ) : (
+                      <select
+                        value={u.role}
+                        disabled={!!saving}
+                        onChange={e => handleRoleChange(u, e.target.value)}
+                        style={{ ...selectStyle, fontSize: 12, padding: '3px 6px', opacity: saving === u.id ? 0.5 : 1 }}
+                      >
+                        {assignableRoles.map(r => (
+                          <option key={r} value={r} style={optStyle}>{ROLE_LABELS[r]}</option>
+                        ))}
+                      </select>
+                    )}
+                  </td>
+                  <td style={{ ...td, textAlign: 'right' }}>
+                    {!cantEdit && (
+                      <button
+                        onClick={() => setResetting(resetting === u.id ? null : u.id)}
+                        style={{ ...btnSmall, fontSize: 12, color: resetting === u.id ? 'var(--accent)' : 'var(--text-muted)' }}
+                      >
+                        Reset password
+                      </button>
+                    )}
+                  </td>
+                </tr>
+                {resetting === u.id && (
+                  <PasswordResetRow
+                    key={u.id + '-pw'}
+                    userId={u.id}
+                    onDone={() => setResetting(null)}
+                  />
+                )}
+              </>
             );
           })}
         </tbody>
@@ -132,7 +285,6 @@ function PermissionsTab({ currentUser }) {
     const ov = getOverride(resourceId);
     if (ov) return ov.granted;
     if (subject.type === 'role') return defaults[subject.id]?.[resourceId] ?? false;
-    // For users, we'd need their role — simplify: show override only
     return null;
   }
 
@@ -142,7 +294,6 @@ function PermissionsTab({ currentUser }) {
     try {
       const ov = getOverride(resourceId);
       if (ov && ov.granted === !currentGranted) {
-        // Already the opposite override — delete it to revert to default
         await api.deletePermission(ov.id);
       } else if (ov) {
         await api.deletePermission(ov.id);
@@ -173,14 +324,12 @@ function PermissionsTab({ currentUser }) {
     }
   }
 
-  // Group resources by group
   const groups = [...new Set(resources.map(r => r.group))];
 
   return (
     <div>
       {error && <p style={{ color: 'var(--danger, #e74c3c)', fontSize: 13, marginBottom: 12 }}>{error}</p>}
 
-      {/* Subject selector */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 24, alignItems: 'center', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', gap: 4, background: 'var(--bg-secondary)', borderRadius: 6, padding: 3, border: '1px solid var(--border)' }}>
           {['role', 'user'].map(t => (
@@ -224,7 +373,6 @@ function PermissionsTab({ currentUser }) {
         </span>
       </div>
 
-      {/* Permission matrix */}
       {groups.map(group => (
         <div key={group} style={{ marginBottom: 24 }}>
           <h4 style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--accent)', marginBottom: 8 }}>
@@ -327,7 +475,6 @@ function EntityTypesTab() {
 
   function setF(key, val) { setForm(f => ({ ...f, [key]: val })); }
 
-  // Auto-generate value from label
   function handleLabelChange(e) {
     const label = e.target.value;
     const value = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
@@ -367,7 +514,6 @@ function EntityTypesTab() {
         Add custom entity types for your workspace. They will appear in the type dropdown when creating or editing entities.
       </p>
 
-      {/* Add form */}
       <form onSubmit={handleAdd} style={{ display: 'flex', gap: 10, alignItems: 'flex-end', marginBottom: 28, flexWrap: 'wrap' }}>
         <div>
           <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Display Label *</label>
@@ -420,7 +566,6 @@ function EntityTypesTab() {
         </button>
       </form>
 
-      {/* Custom types list */}
       {customTypes.length === 0 ? (
         <p style={{ fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>No custom types yet.</p>
       ) : (
@@ -461,19 +606,137 @@ function EntityTypesTab() {
   );
 }
 
-// ── Main ───────────────────────────────────────────────────────────────────
+// ── Tenants tab (superadmin only) ──────────────────────────────────────────
 
-const TABS = [
-  { id: 'users',        label: 'Users' },
-  { id: 'permissions',  label: 'Permissions' },
-  { id: 'entity-types', label: 'Entity Types' },
-];
+function CreateTenantForm({ onCreated }) {
+  const [form, setForm] = useState({ workspaceName: '', adminEmail: '', adminPassword: '' });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  function setF(k, v) { setForm(f => ({ ...f, [k]: v })); }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError('');
+    setSaving(true);
+    try {
+      const created = await api.createTenant(form);
+      setForm({ workspaceName: '', adminEmail: '', adminPassword: '' });
+      onCreated(created);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} style={{ marginBottom: 32, padding: 16, background: 'var(--bg-secondary)', borderRadius: 8, border: '1px solid var(--border)' }}>
+      <h4 style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--accent)', marginBottom: 14 }}>
+        Create Tenant
+      </h4>
+      {error && <p style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 10 }}>{error}</p>}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        <div>
+          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Workspace Name *</label>
+          <input
+            value={form.workspaceName}
+            onChange={e => setF('workspaceName', e.target.value)}
+            required
+            placeholder="e.g. Acme Corp"
+            style={{ ...inputStyle, width: 200 }}
+          />
+        </div>
+        <div>
+          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Admin Email *</label>
+          <input
+            type="email"
+            value={form.adminEmail}
+            onChange={e => setF('adminEmail', e.target.value)}
+            required
+            placeholder="admin@example.com"
+            style={{ ...inputStyle, width: 220 }}
+          />
+        </div>
+        <div>
+          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Admin Password *</label>
+          <input
+            type="password"
+            value={form.adminPassword}
+            onChange={e => setF('adminPassword', e.target.value)}
+            required
+            minLength={8}
+            placeholder="Min 8 characters"
+            style={{ ...inputStyle, width: 180 }}
+          />
+        </div>
+        <button type="submit" className="btn-primary" disabled={saving} style={{ height: 32, whiteSpace: 'nowrap' }}>
+          {saving ? 'Creating…' : '+ Create Tenant'}
+        </button>
+      </div>
+      <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 10 }}>
+        A new workspace will be created and the admin user will be able to log in immediately.
+      </p>
+    </form>
+  );
+}
+
+function TenantsTab() {
+  const [tenants, setTenants] = useState([]);
+  const [error, setError] = useState('');
+
+  const load = useCallback(() => {
+    api.getTenants().then(setTenants).catch(e => setError(e.message));
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  return (
+    <div>
+      <CreateTenantForm onCreated={t => setTenants(prev => [...prev, t])} />
+
+      {error && <p style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12 }}>{error}</p>}
+
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <thead>
+          <tr style={{ borderBottom: '1px solid var(--border)', color: 'var(--text-muted)', textAlign: 'left' }}>
+            <th style={th}>Workspace</th>
+            <th style={th}>Users</th>
+            <th style={th}>Created</th>
+          </tr>
+        </thead>
+        <tbody>
+          {tenants.map(t => (
+            <tr key={t.id} style={{ borderBottom: '1px solid var(--border)' }}>
+              <td style={{ ...td, fontWeight: 500 }}>{t.name}</td>
+              <td style={td}>{t.user_count}</td>
+              <td style={{ ...td, color: 'var(--text-muted)' }}>
+                {new Date(t.created_at).toLocaleDateString()}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ── Main ───────────────────────────────────────────────────────────────────
 
 export default function AdminPage() {
   const { user } = useAuth();
   const [active, setActive] = useState('users');
 
   if (!user) return null;
+
+  const isSuperadmin = user.role === 'superadmin';
+
+  const TABS = [
+    { id: 'users',        label: 'Users' },
+    { id: 'permissions',  label: 'Permissions' },
+    { id: 'entity-types', label: 'Entity Types' },
+    ...(isSuperadmin ? [{ id: 'tenants', label: 'Tenants' }] : []),
+  ];
 
   return (
     <div style={{ padding: '24px 32px', maxWidth: 960 }}>
@@ -503,6 +766,7 @@ export default function AdminPage() {
       {active === 'users'        && <UsersTab currentUser={user} />}
       {active === 'permissions'  && <PermissionsTab currentUser={user} />}
       {active === 'entity-types' && <EntityTypesTab />}
+      {active === 'tenants'      && isSuperadmin && <TenantsTab />}
     </div>
   );
 }
@@ -513,8 +777,6 @@ const btnSmall = {
   padding: '3px 10px', fontSize: 12, borderRadius: 4,
   border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text)',
 };
-// colorScheme: 'light' forces the native OS dropdown popup to render in light mode
-// (dark text on white bg) regardless of the app's dark theme.
 const selectStyle = {
   fontSize: 13, padding: '5px 10px', borderRadius: 4,
   border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text)',

@@ -4,6 +4,7 @@
   --bg: #0f1117;
   --surface: #1a1d27;
   --surface2: #22263a;
+  --bg-secondary: #22263a;
   --border: #2e3250;
   --text: #e2e8f0;
   --text-muted: #7c85a8;
@@ -11,6 +12,7 @@
   --accent-hover: #818cf8;
   --danger: #ef4444;
   --success: #22c55e;
+  color-scheme: dark;
 
   --type-flow: #6366f1;
   --type-table: #0ea5e9;
@@ -22,6 +24,19 @@
   --type-sap: #0070f3;
   --type-procedure: #06b6d4;
   --type-custom: #64748b;
+}
+
+[data-theme="light"] {
+  --bg: #f5f6fa;
+  --surface: #ffffff;
+  --surface2: #eef0f6;
+  --bg-secondary: #eef0f6;
+  --border: #d8dce8;
+  --text: #1e2030;
+  --text-muted: #6b7280;
+  --accent: #4f52e0;
+  --accent-hover: #6366f1;
+  color-scheme: light;
 }
 
 body {
@@ -304,6 +319,7 @@ label { font-size: 12px; color: var(--text-muted); display: block; margin-bottom
   border-radius: 8px !important;
   overflow: hidden;
   border: 1px solid var(--border) !important;
+  background: var(--surface) !important;
 }
 
 /* Scrollbar */
